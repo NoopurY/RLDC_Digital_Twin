@@ -1,0 +1,31 @@
+{
+  "name": "rldc-motor-digital-twin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Software-defined digital twin of an RLDC motor: fault injection, DSP, diagnosis and predictive monitoring.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "verify": "node scripts/verify-engine.mjs",
+    "train-check": "node scripts/train-check.mjs"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.1",
+    "@react-three/postprocessing": "^3.1.3",
+    "framer-motion": "^13.5.0",
+    "lucide-react": "^1.49.0",
+    "mongoose": "^9.10.3",
+    "next": "^15.5.27",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3"
+  }
+}
