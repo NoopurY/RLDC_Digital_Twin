@@ -12,11 +12,8 @@ import SoundToggle from "./SoundToggle";
 
 export const NAV = [
   { href: "/simulator", label: "Simulator" },
-  { href: "/fault-lab", label: "Fault Lab" },
   { href: "/dsp", label: "DSP Analysis" },
-  { href: "/experiments", label: "Experiments" },
   { href: "/compare", label: "Compare" },
-  { href: "/architecture", label: "Architecture" },
 ];
 
 export function DemoButton({ className }) {

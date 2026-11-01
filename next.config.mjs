@@ -8,9 +8,12 @@ const nextConfig = {
       { source: "/dashboard", destination: "/simulator", permanent: false },
       { source: "/analysis", destination: "/dsp", permanent: false },
       { source: "/comparison", destination: "/compare", permanent: false },
-      { source: "/scenarios", destination: "/experiments", permanent: false },
-      { source: "/model", destination: "/architecture", permanent: false },
-      { source: "/about", destination: "/architecture", permanent: false },
+      { source: "/fault-lab", destination: "/simulator", permanent: false },
+      { source: "/experiments", destination: "/simulator", permanent: false },
+      { source: "/scenarios", destination: "/simulator", permanent: false },
+      { source: "/architecture", destination: "/simulator", permanent: false },
+      { source: "/model", destination: "/simulator", permanent: false },
+      { source: "/about", destination: "/simulator", permanent: false },
     ];
   },
 };

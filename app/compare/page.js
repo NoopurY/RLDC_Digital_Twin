@@ -10,7 +10,8 @@ import { DEFAULT_DSP } from "@/lib/dsp/pipeline";
 import { RuleClassifier, CLASS_LABELS } from "@/lib/diagnosis/classifier";
 import { computeHealth } from "@/lib/diagnosis/healthScore";
 import { useCanvas, C, label, niceStep } from "@/components/Charts/useCanvas";
-import { PageHeader, Field, cx } from "@/components/ui/primitives";
+import { PageHeader, Field, Segmented, cx } from "@/components/ui/primitives";
+import { OriginalVsFiltered, FilterComparison } from "@/components/Compare/FilterModes";
 
 /** Deterministically re-synthesise a configuration through the full chain. */
 function synthesize({ params, faults, dsp, seed, name }) {
@@ -40,9 +41,37 @@ const ROWS = [
   ["Temperature", (x) => x.features.temperature, 1, "°C"],
 ];
 
+const MODES = [
+  { value: "health", label: "Healthy vs Faulty" },
+  { value: "filtered", label: "Original vs Filtered" },
+  { value: "filters", label: "Filter comparison" },
+];
+
+const INTRO = {
+  health:
+    "Two configurations re-synthesised through the same generator, DSP and diagnosis chain (deterministic seed). The waveforms share one amplitude scale and the spectra share one scale and one frequency cursor, so differences are visible, not just listed.",
+  filtered: "The same motor signal before and after an IIR filter, on shared scales — what the filter keeps, what it removes, and how the time-domain features change.",
+  filters: "Several IIR designs applied to the same samples: Butterworth against Chebyshev-I, different orders, or different cut-offs.",
+};
+
 function Compare() {
   const s = useTwin();
   const q = useSearchParams();
+  const [mode, setMode] = useState(MODES.some((m) => m.value === q.get("mode")) ? q.get("mode") : "health");
+  return (
+    <div className="space-y-8">
+      <PageHeader kicker="Compare" title={MODES.find((m) => m.value === mode).label}>
+        {INTRO[mode]}
+      </PageHeader>
+      <div className="sticky top-12 z-20 -mx-4 bg-canvas/95 px-4 backdrop-blur lg:-mx-6 lg:px-6">
+        <Segmented size="md" value={mode} onChange={setMode} options={MODES} />
+      </div>
+      {!s ? null : mode === "health" ? <HealthyFaulty s={s} q={q} /> : mode === "filtered" ? <OriginalVsFiltered s={s} /> : <FilterComparison s={s} />}
+    </div>
+  );
+}
+
+function HealthyFaulty({ s, q }) {
   const [exps, setExps] = useState([]);
   const [selA, setSelA] = useState(q.get("a") ?? "live:healthy");
   const [selB, setSelB] = useState(q.get("b") ?? "live:current");
@@ -84,10 +113,6 @@ function Compare() {
 
   return (
     <div className="space-y-10">
-      <PageHeader kicker="Compare" title="Healthy vs faulty">
-        Two configurations re-synthesised through the same generator, DSP and diagnosis chain (deterministic seed). The waveforms share one amplitude scale and the spectra share
-        one scale and one frequency cursor, so differences are visible, not just listed.
-      </PageHeader>
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="A">
           <select className="sel" value={selA} onChange={(e) => setSelA(e.target.value)}>

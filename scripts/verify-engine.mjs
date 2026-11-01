@@ -10,6 +10,9 @@ import { applyFilter } from "../lib/dsp/filters.js";
 import { dft } from "../lib/dsp/dft.js";
 import { fft } from "../lib/dsp/fft.js";
 import { welchPSD } from "../lib/dsp/psd.js";
+import { designIIR, magnitude, applyIIR } from "../lib/dsp/iirDesign.js";
+import { analyzeFrequency } from "../lib/dsp/frequencyAnalysis.js";
+import { testSignal } from "../lib/dsp/labSignals.js";
 
 const fmt = (v, d = 3) => (typeof v === "number" ? v.toFixed(d) : String(v));
 let failures = 0;
@@ -129,6 +132,52 @@ for (const rpm of [800, 1500, 2500])
     `\nLoad 40%→80%: rpm ${fmt(lo.telemetry.rpm, 0)}→${fmt(hi.telemetry.rpm, 0)}, I ${fmt(lo.telemetry.current, 2)}→${fmt(hi.telemetry.current, 2)} A, T ${fmt(lo.telemetry.temperature, 1)}→${fmt(hi.telemetry.temperature, 1)} °C, rms ${fmt(lo.features.rms)}→${fmt(hi.features.rms)}`
   );
   check(hi.telemetry.rpm < lo.telemetry.rpm && hi.telemetry.current > lo.telemetry.current && hi.telemetry.temperature > lo.telemetry.temperature, "load→current→temperature→rpm chain");
+}
+
+// 8. DSP Analysis module: DFT/FFT/IFFT and IIR design (Butterworth/Chebyshev-I, bilinear/impulse invariant)
+{
+  console.log("");
+  for (const N of [64, 128, 256, 512]) {
+    const sig = testSignal({ fs: 512, n: N });
+    const fa = analyzeFrequency(sig.x, 512);
+    check(fa.fft.maxDiff < 1e-9 && fa.fft.reconErr < 1e-12, `N=${N}: DFT = FFT and IFFT reconstructs`);
+    if (N === 512) {
+      console.log(`Frequency analysis N=512: dominant ${fa.dominant.freq} Hz, |X(25)|=${fmt(fa.mag[25])}, |X(50)|=${fmt(fa.mag[50])}, |X(75)|=${fmt(fa.mag[75])}, IFFT err ${fa.fft.reconErr.toExponential(1)}`);
+      check(fa.dominant.freq === 25 && Math.abs(fa.mag[25] - 1) < 1e-6 && Math.abs(fa.mag[50] - 0.5) < 1e-6 && Math.abs(fa.mag[75] - 0.25) < 1e-6, "test-signal harmonic amplitudes");
+    }
+  }
+  check(!analyzeFrequency(new Float64Array(100), 512).fft, "non-radix-2 N rejected by FFT");
+
+  const db = (v) => 20 * Math.log10(v);
+  let designs = 0;
+  for (const family of ["butterworth", "chebyshev"])
+    for (const method of ["bilinear", "impulse"])
+      for (const response of ["lowpass", "highpass", "bandpass"])
+        for (const order of [2, 4, 6]) {
+          const cfg = { family, method, response, order, fs: 2048, fc: 200, fLow: 100, fHigh: 300, ripple: 1 };
+          const d = designIIR(cfg);
+          const tag = `${family}/${method}/${response}/${order}`;
+          if (method === "impulse" && response === "highpass") {
+            check(!d.ok, `${tag} rejected`);
+            continue;
+          }
+          designs++;
+          check(d.ok && d.stable && d.b.length === order + (method === "impulse" ? 0 : 1) && d.a.length === order + 1, `${tag} designed and stable`);
+          const edges = response === "bandpass" ? [100, 300] : [200];
+          const target = family === "butterworth" ? -3.01 : -1;
+          const tol = method === "bilinear" ? 0.02 : 0.4; // impulse invariance aliases slightly
+          for (const e of magnitude(d, edges)) check(Math.abs(db(e) - target) < tol, `${tag} edge gain ${db(e).toFixed(2)} dB`);
+          const stop = response === "lowpass" ? 800 : response === "highpass" ? 20 : 900;
+          // Impulse invariance has an aliasing floor near Nyquist (worst for the 2-pole band-pass).
+          check(db(magnitude(d, [stop])[0]) < (method === "bilinear" ? -10 : -3), `${tag} stop-band attenuation`);
+          // Time-domain check: steady-state output amplitude of a pass/stop tone matches |H|.
+          const fPass = response === "lowpass" ? 20 : response === "highpass" ? 800 : 173;
+          const x = Float64Array.from({ length: 8192 }, (_, i) => Math.sin((2 * Math.PI * fPass * i) / 2048));
+          const y = applyIIR(d, x).subarray(4096);
+          const amp = Math.max(...y);
+          check(Math.abs(amp - magnitude(d, [fPass])[0]) < 0.02, `${tag} filtered tone amplitude ${amp.toFixed(3)}`);
+        }
+  console.log(`IIR design: ${designs} configurations designed, stable, at the specified edge gain; impulse-invariant high-pass correctly rejected`);
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
