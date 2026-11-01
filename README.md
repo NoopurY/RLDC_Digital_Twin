@@ -13,10 +13,11 @@ required.
 - Simulate healthy and faulty RLDC motor behavior.
 - Inject faults immediately, progressively, or in combination.
 - Inspect time-domain signals, FFT spectra, and spectrograms on one timeline.
-- Run FIR, Butterworth, and Chebyshev filtering experiments.
-- Compare FFT/DFT, windowing, STFT, Welch PSD, and extracted signal features.
+- Analyse frequency content with the DFT, a radix-2 FFT, and IFFT reconstruction.
+- Design Butterworth and Chebyshev Type-I IIR filters (low-, high-, band-pass;
+  bilinear or impulse-invariant transformation) and apply them to motor signals.
 - Diagnose faults with rule-based evidence and an explainable health score.
-- Save and compare experiments and scenarios locally or in MongoDB.
+- Compare healthy vs faulty motors, original vs filtered signals, and filter designs.
 - Use the scripted Professor Demo for a guided presentation.
 
 ## Requirements
@@ -45,15 +46,15 @@ Run the engine self-test before committing changes:
 npm run verify
 ```
 
-The verification script covers FFT/DFT, filters, PSD Parseval checks, fault
-detection, and false-positive checks.
+The verification script covers FFT/DFT/IFFT, the live-pipeline filters, PSD
+Parseval checks, every IIR design configuration (stability, cut-off gain,
+filtered-tone amplitude), fault detection, and false-positive checks.
 
 Other useful commands:
 
 ```bash
 npm run build       # Create a production build
 npm run start       # Serve the production build
-npm run train-check # Validate the archived ML training workflow
 ```
 
 ## Application routes
@@ -61,29 +62,44 @@ npm run train-check # Validate the archived ML training workflow
 | Route | Purpose |
 | --- | --- |
 | `/simulator` | Main motor twin, fault injection, signal analysis, diagnosis, and health evolution |
-| `/fault-lab` | Fault-signature atlas and what-if analysis |
-| `/dsp` | Sampling, Nyquist, filters, FFT/DFT, windowing, STFT, Welch PSD, and features |
-| `/experiments` | Experiment timeline and reusable scenarios |
-| `/compare` | Synchronized healthy-versus-faulty waveform and spectrum comparison |
-| `/architecture` | System overview, equations, input sources, and limitations |
+| `/dsp` | Two modules: **Frequency Analysis (DFT & FFT)** and **Digital Filtering (IIR)** |
+| `/compare` | Healthy vs faulty, original vs filtered, and filter comparison (family, order, cut-off) |
+
+Older routes (`/fault-lab`, `/experiments`, `/architecture`, `/scenarios`,
+`/model`, `/about`) redirect to `/simulator`.
+
+### DSP Analysis
+
+Each module follows the same steps: select input → configure → execute →
+visualize → mathematics → engineering relevance. Inputs are the motor vibration
+or armature current (re-generated from the simulator's current operating point
+and faults, read-only) or a clean test signal.
+
+- **Frequency Analysis (DFT & FFT)** — N = 64/128/256/512 (non-power-of-two N
+  runs the DFT only), time/frequency view, dominant frequency, frequency
+  resolution Δf = f_s/N, f_rot = RPM/60 with 2× and 3× harmonics, DFT-vs-FFT
+  check, and IFFT reconstruction overlay.
+- **Digital Filtering (IIR)** — Butterworth or Chebyshev Type-I, low/high/band-
+  pass, order 2/4/6, bilinear (pre-warped) or impulse-invariant design,
+  coefficients and H(z), pole stability, original/filtered waveforms, magnitude
+  response, measured SNR improvement on the noisy test signal, and a warning
+  when a filter removes the bearing-resonance band.
 
 ## Project structure
 
 ```text
 app/
   simulator/       Main digital-twin experience
-  fault-lab/       Fault-signature exploration
-  dsp/             DSP laboratory
-  experiments/     Experiment and scenario management
-  compare/         Healthy/faulty comparison
-  architecture/    Architecture and limitations
+  dsp/             Frequency Analysis (DFT & FFT) and Digital Filtering (IIR)
+  compare/         Healthy/faulty, original/filtered, and filter comparison
 components/        Reusable UI and visualization components
 lib/
   simulation/      Motor, mechanical, electrical, thermal, and signal models
-  dsp/             FFT, DFT, filters, STFT, PSD, statistics, and features
+  dsp/             FFT, DFT, filters, STFT, PSD, statistics, features,
+                   iirDesign (lab IIR design), frequencyAnalysis, labSignals
   diagnosis/       Fault rules, classifier, explanations, health, and prognosis
   engine/          Live twin loop, data sources, demo, and sound
-scripts/            Verification and training checks
+scripts/          Engine verification
 archive/            Archived optional machine-learning classifier
 ```
 
